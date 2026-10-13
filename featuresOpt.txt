@@ -130,6 +130,16 @@ v1.3.0 CHANGES (vs v1.2.0)
     bugs where ball could pass through gaps near right wall
   + Version updated to v1.3.0 on playfield
 
+v1.6.0 CHANGES (vs v1.5.0)
+  + Target bank centered: all 12 levels now have 5 drop targets centered on
+    playfield center x=165 (was offset in LV 1 & 3)
+  + Edge margins enforced: all ramps, spinners, bumpers keep 20px+ clearance
+    from left wall (x=24) and plunger divider (x=306)
+  + Fixed slope bars connected to flipper pivots: bottom guide slopes now
+    meet flipper bases at (101,510) and (259,510), eliminating ball-squeeze
+    gaps where ball could drain between slope and flipper
+  + Version updated to v1.6.0 on playfield
+
 v1.2.0 CHANGES (vs v1.1.0)
   + Target bank decay mechanic (25s timer, simultaneous lit = level advance)
   + Target visual states: lit (neon glow + timer bar), unhit (normal)

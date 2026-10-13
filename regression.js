@@ -479,7 +479,7 @@
   check("targets: starts at 0/5", ctxMock.texts.some(t => t.includes("0/5")));
 
   // Verify version label renders
-  check("version: v1.5.0 label on playfield", ctxMock.texts.some(t => t === "v1.5.0"));
+  check("version: v1.6.0 label on playfield", ctxMock.texts.some(t => t === "v1.6.0"));
 
   // The full decay/level-advance logic is implicitly covered by soak test
   // (extended play exercises target hits, decay, and level advance)
