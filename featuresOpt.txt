@@ -1,0 +1,144 @@
+MYFLIPPERGAME v1.3.0 - FEATURES & OPTIONS REFERENCE
+=====================================================
+
+FILES
+-----
+index.html    - page structure, canvas, controls, panels
+style.css     - neon theme, layout, responsive styles
+game.js       - complete game (IIFE, ~1500 lines, 22 commented sections)
+regression.js - headless test harness (node regression.js -> 100 checks)
+
+RUN
+---
+Open index.html in any modern browser, or serve the folder:
+  npx serve .        /     python -m http.server
+No build step, no dependencies.
+
+CONTROLS
+--------
+Keyboard
+  Left flipper ......... ArrowLeft  or  A
+  Right flipper ........ ArrowRight or  D
+  Start game ........... Space (also W or ArrowUp)
+  Plunger .............. HOLD Space / W / ArrowUp to charge the spring,
+                          release to launch (power oscillates 0-100%)
+  Tilt (cheat warning) . hold Left + Right together
+
+Pointer / touch
+  Left / Right flipper buttons (bottom of page)
+  PLUNGER button (center, yellow) - hold to charge, release to launch
+  All buttons use Pointer Events with pointer capture; safe on touch.
+
+Safety
+  Window blur releases flippers and cancels plunger charge.
+
+GAMEPLAY
+--------
+Plunger lane (right side)
+  New ball always waits on the plunger. Hold the trigger to charge the
+  spring (oscillating meter on the right edge), release to fire.
+  Launch speed scales with charge (710-1000 px/s). The lane is capped by
+  a 45-degree deflector that throws the ball left into the playfield, and
+  guarded by a one-way gate: balls can leave the lane into the field but
+  cannot fall back in from the field. A weak shot that does not clear the
+  lane rolls back onto the plunger for another try.
+
+Scoring
+  Bumpers ...... 100 / 150 / 200 / 250 (color coded, outer ring first)
+  Spinners ..... 30 per touch, spin up with ball speed; the ball
+                  bounces off the spinner post (normal velocity is
+                  reflected, so it can never get stuck on it)
+  Ramps ........ 100 per pass
+  Drop targets . 50 each, 5 in one ball = PERFECT BALL bonus + level up
+  Flipper hits . 10 (only while the flipper is being flipped)
+  Combo ........ consecutive hits within 2.2 s chain the multiplier up to
+                  x10 (HUD badge shows up to x3)
+
+Flippers
+  Pressing a flipper kicks the ball hard: up to 390 px/s upward
+  (Normal) plus a sideways push - about 50% higher than v1.2.2.
+  A resting flipper is just a slope: balls touching it bounce off
+  gently (segment reflection only) and roll toward the drain,
+  like a real table. Only a pressed flipper launches the ball.
+  Flipper gap widened (pivots at x=90 / x=270) for reliable drain.
+
+Multiball
+  Hitting a 250-point bumper has a 15% chance to trigger CHAOS multiball.
+
+Lives / drain
+  Ball drains between the flippers. Difficulty-dependent balls:
+  Easy=5, Normal=4, Hard=3.
+  After each drain the next ball waits on the plunger.
+
+Tilt
+  Holding both flippers: haptic warning after ~0.5 s ([100,50,100] pulse),
+  TILT - GAME OVER after ~1.5 s ([200,100,200] pulse). Tilt ends the game
+  immediately and works even while the ball is on the plunger.
+
+TARGET BANK (Decay Mechanic)
+  5 drop targets at top of playfield. Each hit lights for 25 seconds,
+  then decays (pulses when <5s remaining) and becomes hittable again.
+  Level advances when ALL 5 are lit SIMULTANEOUSLY - classic pinball bank
+  completion. PERFECT BALL bonus (15k) = hit all 5 unique in one ball.
+  HUD shows "TARGETS: X/5" with yellow when complete, cyan when partial.
+
+LEVELS (12, selectable from Settings -> Levels)
+  1 CLASSIC    2 HIGH & LOW   3 GRID      4 DIAMOND
+  5 TWIN TOWERS 6 SWIRL       7 BOWL      8 CROSSFIRE
+  9 FORTRESS   10 HOURGLASS   11 STORM    12 FINAL
+  The level panel renders a live miniature of every table (3x4 grid);
+  click a table to start that level immediately. Clearing the target bank
+  (all 5 lit at once) advances to the next level automatically.
+  Level layouts adjusted: all items leave 20px margin from plunger lane
+  divider at x=306 so ball cannot squeeze through gaps.
+  Level label (LV n) and version (v1.3.0) drawn on playfield bottom-left.
+
+MISSIONS (Settings -> Missions, progress bars + rewards)
+  TRIPLE THREAT . chain a x3 combo ........................ +2,500
+  50K CLUB ...... reach 50,000 points ..................... +10,000
+  SURVIVOR ...... play 60 s in one game ................... +5,000
+  TARGET PRACTICE hit 15 drop targets .................... +3,000
+  CHAOS ......... trigger multiball ....................... +5,000
+  PERFECT BALL .. clear all 5 targets in one ball ......... +15,000
+
+OPTIONS (Settings panel, all persist to localStorage)
+  Sound ....... ON/OFF (WebAudio synth: bumpers, flippers, drain, jingles)
+  Vibration ... ON/OFF (navigator.vibrate haptics on mobile)
+  Difficulty .. Easy / Normal / Hard
+                 Easy:   gravity 300, ball speed x0.85, flipper x1.15,
+                         bumper x1.2, 5 balls
+                 Normal: gravity 360, ball speed x1.00, flipper x1.00,
+                         bumper x1.0, 4 balls
+                 Hard:   gravity 420, ball speed x1.15, flipper x0.90,
+                         bumper x0.85, 3 balls
+  High Scores . top 10 scores with dates (view from Settings)
+  Levels ...... level select grid (see above)
+
+PERSISTENCE KEYS (localStorage)
+  myFlipperScores    - JSON array of {score, date}, top 10
+  myFlipperBest      - best score number
+  myFlipperSound     - "true"/"false"
+  myFlipperVibrate   - "true"/"false"
+  myFlipperDifficulty- "easy"/"normal"/"hard"
+
+v1.3.0 CHANGES (vs v1.2.0)
+  + Flipper gap widened: pivots moved to x=90 / x=270 (was 100/250)
+    giving ~46px tip gap (was 26px) for reliable mobile drain
+  + Difficulty lives rebalanced: Easy=5, Normal=4, Hard=3 (was 12/9/6)
+  + Level layouts adjusted: all right-side items shifted left to leave
+    20px margin from plunger lane divider (x=306), fixing ball-squeeze
+    bugs where ball could pass through gaps near right wall
+  + Version updated to v1.3.0 on playfield
+
+v1.2.0 CHANGES (vs v1.1.0)
+  + Target bank decay mechanic (25s timer, simultaneous lit = level advance)
+  + Target visual states: lit (neon glow + timer bar), unhit (normal)
+  + Right flipper moved inboard (260->250) for better drain gap
+  + Flipper collision radius increased (7->10) + checked before walls
+  + Level advance = all 5 targets lit at once (authentic pinball)
+  + PERFECT BALL = 5 unique hits per ball (separate 15k achievement)
+  + Version label on playfield (bottom-left)
+  + Right flipper edge gap fixed
+
+v1.2.2 was the 12-level content + mission drop-target tracking release;
+v1.2.0 added the delimiter comment map (22 sections, 67 subsections).

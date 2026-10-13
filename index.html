@@ -1,0 +1,86 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080817">
+  <title>MyFlipperGame</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="game.js" defer></script>
+</head>
+<body>
+  <main class="game">
+    <header class="topbar">
+      <h1>MY<span>FLIPPER</span><b>!</b></h1>
+      <div class="stats">
+        <div>SCORE<strong id="score">0</strong></div>
+        <div>BEST<strong id="best">0</strong></div>
+        <div>BALLS<strong id="lives">9</strong></div>
+      </div>
+      <div class="settings" id="settingsBtn" aria-label="Settings">⚙</div>
+    </header>
+
+    <div class="settings-panel hidden" id="settingsPanel">
+      <div class="setting-row">
+        <span>🔊 Sound</span>
+        <button id="soundToggle" class="toggle-btn" aria-pressed="true">ON</button>
+      </div>
+      <div class="setting-row">
+        <span>📳 Vibration</span>
+        <button id="vibrateToggle" class="toggle-btn" aria-pressed="true">ON</button>
+      </div>
+      <div class="setting-row">
+        <span>⚡ Difficulty</span>
+        <select id="difficultySelect">
+          <option value="easy">Easy</option>
+          <option value="normal">Normal</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <span>🏆 High Scores</span>
+        <button id="highScoresBtn" class="toggle-btn">VIEW</button>
+      </div>
+      <div class="setting-row">
+        <span>🎯 Missions</span>
+        <button id="missionsBtn" class="toggle-btn">VIEW</button>
+      </div>
+      <div class="setting-row">
+        <span>📊 Levels</span>
+        <button id="levelsBtn" class="toggle-btn">VIEW</button>
+      </div>
+      <button id="closeSettings" class="close-btn">CLOSE</button>
+    </div>
+
+    <div class="settings-panel hidden" id="levelsPanel">
+      <h3 style="margin:0 0 8px;color:var(--pink);font-size:18px;text-align:center">SELECT LEVEL</h3>
+      <canvas id="levelsCanvas" width="330" height="440" style="width:100%;border-radius:8px;background:#0a0a1e;cursor:pointer"></canvas>
+      <button id="closeLevels" class="close-btn" style="margin-top:8px">CLOSE</button>
+    </div>
+
+    <section class="board">
+      <canvas id="gameCanvas" aria-label="Pinball playfield"></canvas>
+
+      <div class="overlay" id="overlay">
+        <div class="panel">
+          <h2 id="overlayTitle">READY?</h2>
+          <p id="overlayMessage">
+            Hit the bumpers.<br>
+            Build combos. Beat your best!
+          </p>
+          <button id="startBtn">START GAME ▶</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="controls">
+      <button id="leftBtn" class="control left">◀ LEFT FLIPPER</button>
+      <button id="plungeBtn" class="control plunge">▲ PLUNGER</button>
+      <button id="rightBtn" class="control right">RIGHT FLIPPER ▶</button>
+    </section>
+
+    <p class="help">Hold the buttons to flip · Keyboard: ← → or A / D · SPACE / W / ↑ charge plunger</p>
+  </main>
+</body>
+</html>
