@@ -1,0 +1,29 @@
+{
+  "name": "MyFlipperGame",
+  "short_name": "MyFlipper",
+  "description": "Neon pinball - sectioned & polished",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#080817",
+  "theme_color": "#080817",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "entertainment"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "New Game",
+      "short_name": "Play",
+      "description": "Start a new game",
+      "url": "/?newgame=true",
+      "icons": [{ "src": "icons/icon.svg", "sizes": "any" }]
+    }
+  ]
+}
