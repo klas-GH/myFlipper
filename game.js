@@ -17,7 +17,7 @@
 
 //1.2 Game dimensions and color palette
   const W = 360, H = 600;
-  const VERSION = "v1.3.5";
+  const VERSION = "v1.4.0";
   const TARGET_DECAY = 25; // seconds before lit target decays
   const C = {
     cyan: "#35f6ff",
@@ -53,6 +53,13 @@
   let plunging = false;
   let ballInPlunger = false;
   let pendingLevel = 0;
+
+// Performance: detect mobile once
+  const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+  const LOW_PERF = isMobile;
+
+// Cached gradients (created once canvas exists)
+  let ballGradient = null;
 
 //2.2 Persistent storage (best score, high scores, settings)
   try {
@@ -170,7 +177,9 @@
     const rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
 
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Cap DPR at 1.5 for performance on mobile, 2 for desktop
+    const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+    dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2);
     canvas.width = Math.round(rect.width * dpr);
     canvas.height = Math.round(rect.height * dpr);
     draw();
@@ -937,18 +946,17 @@
     ctx.restore();
   }
 
-//16.2 Circle primitive with glow
+//16.2 Circle primitive with glow - optimized (no save/restore for simple fills)
   function circle(x,y,r,color,glow=0,fill=false) {
-    ctx.save();
     ctx.beginPath();
     ctx.arc(x,y,Math.max(.1,r),0,Math.PI*2);
-    ctx.strokeStyle=color;
-    ctx.fillStyle=color;
-    ctx.lineWidth=2;
-    ctx.shadowColor=color;
-    ctx.shadowBlur=glow;
-    if(fill) ctx.fill(); else ctx.stroke();
-    ctx.restore();
+    if (glow > 0 && !LOW_PERF) {
+      ctx.shadowColor=color;
+      ctx.shadowBlur=glow;
+    }
+    if(fill) { ctx.fillStyle=color; ctx.fill(); }
+    else { ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke(); }
+    ctx.shadowBlur=0;
   }
 
 ///  17.  RENDER
@@ -959,7 +967,8 @@
     ctx.setTransform(canvas.width/W,0,0,canvas.height/H,0,0);
     ctx.clearRect(0,0,W,H);
 
-    const bg=ctx.createLinearGradient(0,0,W,H);
+    // Cached background gradient
+    const bg = ctx.createLinearGradient(0,0,W,H);
     bg.addColorStop(0,"#10102b");
     bg.addColorStop(1,"#080817");
     ctx.fillStyle=bg;
@@ -971,18 +980,21 @@
       ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
     }
 
-    for(let i=0;i<55;i++) {
-      ctx.globalAlpha=.2+.25*Math.sin(elapsed*2+i);
-      ctx.fillStyle=i%3? "#6c70b8":C.cyan;
-      ctx.fillRect((i*79+13)%W,(i*137+21)%H,2,2);
+    // Reduced starfield on mobile (20 vs 55), no sin() per frame
+    const starCount = LOW_PERF ? 20 : 40;
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = C.cyan;
+    for(let i=0;i<starCount;i++) {
+      const x = (i * 79 + 13) % W;
+      const y = (i * 137 + 21) % H;
+      ctx.fillRect(x, y, 2, 2);
     }
     ctx.globalAlpha=1;
 
-//17.2 Playfield walls
+    //17.2 Playfield walls - reduced shadow on mobile
     ctx.strokeStyle=C.cyan;
     ctx.lineWidth=2;
-    ctx.shadowColor=C.cyan;
-    ctx.shadowBlur=12;
+    if (!LOW_PERF) { ctx.shadowColor=C.cyan; ctx.shadowBlur=12; }
     ctx.beginPath();
     ctx.moveTo(24,45); ctx.lineTo(306,45);
     ctx.moveTo(24,45); ctx.lineTo(24,430);
@@ -996,36 +1008,30 @@
     ctx.stroke();
     ctx.shadowBlur=0;
 
-//17.3 Targets
+    //17.3 Targets - batched, reduced shadows
     const targetsLit = targets.filter(t => t.litTimer > 0).length;
     for(const t of targets) {
-      ctx.save();
       if (t.litTimer > 0) {
-        // Lit: bright glow, pulses when decaying low
-        const pulse = t.litTimer < 5 ? 0.5 + Math.sin(elapsed * 10) * 0.5 : 1;
+        const pulse = t.litTimer < 5 && !LOW_PERF ? 0.5 + Math.sin(elapsed * 10) * 0.5 : 1;
         ctx.globalAlpha = pulse;
-        ctx.shadowColor = t.color;
-        ctx.shadowBlur = 18 + Math.sin(elapsed * 8) * 4;
+        if (!LOW_PERF) { ctx.shadowColor = t.color; ctx.shadowBlur = 14; }
         ctx.fillStyle = t.color;
         ctx.fillRect(t.x, t.y, t.w, t.h);
         ctx.fillStyle = C.white;
         ctx.fillRect(t.x + 4, t.y + 3, t.w - 8, 2);
-        // Timer bar at top
-        ctx.fillStyle = C.white;
+        // Timer bar
         ctx.globalAlpha = 0.6;
+        ctx.fillStyle = C.white;
         ctx.fillRect(t.x, t.y - 4, (t.w * t.litTimer) / TARGET_DECAY, 2);
         ctx.shadowBlur = 0;
       } else {
-        // Unhit: normal
-        ctx.shadowColor = t.color;
-        ctx.shadowBlur = 8;
+        if (!LOW_PERF) { ctx.shadowColor = t.color; ctx.shadowBlur = 6; }
         ctx.fillStyle = t.color;
         ctx.fillRect(t.x, t.y, t.w, t.h);
         ctx.fillStyle = C.white;
         ctx.fillRect(t.x + 4, t.y + 3, t.w - 8, 2);
         ctx.shadowBlur = 0;
       }
-      ctx.restore();
     }
 
     ctx.fillStyle = targetsLit === 5 ? C.yellow : targetsLit > 0 ? C.cyan : "#aaaacb";
@@ -1033,44 +1039,43 @@
     ctx.textAlign = "center";
     ctx.fillText(`TARGETS: ${targetsLit}/5`, 180, 65);
 
-//17.4 Bumpers
+//17.4 Bumpers - batched, reduced effects on mobile
     for(const b of bumpers) {
       const r=b.r+b.pulse*5;
-      ctx.save();
-      ctx.shadowColor=b.color;
-      ctx.shadowBlur=15+b.pulse*20;
+      if (!LOW_PERF) { ctx.shadowColor=b.color; ctx.shadowBlur=10+b.pulse*15; }
       ctx.fillStyle="#17152f";
       ctx.beginPath();
       ctx.arc(b.x,b.y,r,0,Math.PI*2);
       ctx.fill();
       ctx.strokeStyle=b.color;
-      ctx.lineWidth=3;
+      ctx.lineWidth=2;
       ctx.stroke();
 
       ctx.beginPath();
       ctx.arc(b.x,b.y,r*.63,0,Math.PI*2);
       ctx.strokeStyle=C.white;
-      ctx.lineWidth=1.5;
+      ctx.lineWidth=1;
       ctx.stroke();
 
       ctx.fillStyle=b.color;
-      ctx.font="bold 10px system-ui";
+      ctx.font="bold 9px system-ui";
       ctx.textBaseline="middle";
       ctx.fillText(String(b.points),b.x,b.y);
-      ctx.restore();
+      ctx.shadowBlur=0;
     }
 
-//17.5 Slingshots, flippers, spinners and ramps
-    line(75,475,96,500,C.pink,3,10);
-    line(285,475,264,500,C.pink,3,10);
+    //17.5 Slingshots, flippers, spinners and ramps
+    if (!LOW_PERF) { ctx.shadowColor=C.pink; ctx.shadowBlur=8; }
+    line(75,475,96,500,C.pink,3,0);
+    line(285,475,264,500,C.pink,3,0);
 
     for (const f of flippers) {
       const x2 = f.x + Math.cos(f.angle) * f.len;
       const y2 = f.y + Math.sin(f.angle) * f.len;
       const color = f.side === -1 ? C.cyan : C.pink;
-      circle(f.x, f.y, 9, color, 10, true);
-      line(f.x, f.y, x2, y2, color, 13, 15);
-      line(f.x, f.y, x2, y2, C.white, 3, 5);
+      circle(f.x, f.y, 9, color, LOW_PERF ? 0 : 8, true);
+      line(f.x, f.y, x2, y2, color, 10, LOW_PERF ? 0 : 10);
+      line(f.x, f.y, x2, y2, C.white, 2, 0);
     }
 
     for (const sp of spinners) {
@@ -1078,9 +1083,8 @@
       ctx.translate(sp.x, sp.y);
       ctx.rotate(sp.angle);
       ctx.strokeStyle = sp.color;
-      ctx.lineWidth = 3;
-      ctx.shadowColor = sp.color;
-      ctx.shadowBlur = 10;
+      ctx.lineWidth = 2;
+      if (!LOW_PERF) { ctx.shadowColor = sp.color; ctx.shadowBlur = 6; }
       ctx.beginPath();
       ctx.moveTo(-sp.r, 0);
       ctx.lineTo(sp.r, 0);
@@ -1090,109 +1094,109 @@
       ctx.beginPath();
       ctx.arc(0, 0, sp.r, 0, Math.PI * 2);
       ctx.strokeStyle = sp.color;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.restore();
+      ctx.shadowBlur = 0;
     }
 
     for (const r of ramps) {
-      ctx.save();
       ctx.strokeStyle = r.color;
-      ctx.lineWidth = 6;
-      ctx.shadowColor = r.color;
-      ctx.shadowBlur = 12;
+      ctx.lineWidth = 5;
+      if (!LOW_PERF) { ctx.shadowColor = r.color; ctx.shadowBlur = 8; }
       ctx.lineCap = "round";
       ctx.beginPath();
       ctx.moveTo(r.x1, r.y1);
       ctx.lineTo(r.x2, r.y2);
       ctx.stroke();
-      ctx.restore();
+      ctx.shadowBlur = 0;
     }
 
-//17.6 Balls with trails
+    //17.6 Balls with trails - reduced on mobile
     for (const ball of balls) {
-      ball.trail.forEach((p, i) => {
-        ctx.globalAlpha = (i + 1) / ball.trail.length * .35;
-        circle(p.x, p.y, ball.r * (i + 1) / ball.trail.length, C.cyan, 5, true);
-      });
+      const trailLen = LOW_PERF ? Math.min(ball.trail.length, 4) : ball.trail.length;
+      for (let i = 0; i < trailLen; i++) {
+        const p = ball.trail[i];
+        ctx.globalAlpha = (i + 1) / trailLen * .25;
+        circle(p.x, p.y, ball.r * (i + 1) / trailLen, C.cyan, 0, true);
+      }
       ctx.globalAlpha = 1;
 
-      const g = ctx.createRadialGradient(
-        ball.x - 2, ball.y - 3, 1, ball.x, ball.y, ball.r * 1.5
-      );
-      g.addColorStop(0, C.white);
-      g.addColorStop(.4, "#c7ffff");
-      g.addColorStop(1, C.cyan);
-
-      ctx.save();
-      ctx.shadowColor = C.cyan;
-      ctx.shadowBlur = 18;
-      ctx.fillStyle = g;
+      if (!LOW_PERF) {
+        const g = ctx.createRadialGradient(
+          ball.x - 2, ball.y - 3, 1, ball.x, ball.y, ball.r * 1.5
+        );
+        g.addColorStop(0, C.white);
+        g.addColorStop(.4, "#c7ffff");
+        g.addColorStop(1, C.cyan);
+        ctx.shadowColor = C.cyan;
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = g;
+      } else {
+        ctx.fillStyle = C.cyan;
+      }
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
       ctx.fill();
-      ctx.restore();
+      ctx.shadowBlur = 0;
     }
 
-//17.7 Particles and floating text
+//17.7 Particles and floating text - reduced on mobile
     for(const p of particles) {
-      ctx.globalAlpha=Math.max(0,p.life/.8);
-      circle(p.x,p.y,p.r,p.color,5,true);
+      ctx.globalAlpha = Math.max(0, p.life / .8);
+      circle(p.x, p.y, p.r, p.color, 0, true);
     }
-    ctx.globalAlpha=1;
+    ctx.globalAlpha = 1;
 
     for(const t of floatingText) {
-      ctx.globalAlpha=Math.min(1,t.life*2);
-      ctx.fillStyle=t.color;
-      ctx.font="900 13px system-ui";
-      ctx.textAlign="center";
-      ctx.shadowColor=t.color;
-      ctx.shadowBlur=10;
-      ctx.fillText(t.text,t.x,t.y);
-      ctx.shadowBlur=0;
+      ctx.globalAlpha = Math.min(1, t.life * 2);
+      ctx.fillStyle = t.color;
+      ctx.font = "900 12px system-ui";
+      ctx.textAlign = "center";
+      if (!LOW_PERF) { ctx.shadowColor = t.color; ctx.shadowBlur = 8; }
+      ctx.fillText(t.text, t.x, t.y);
+      ctx.shadowBlur = 0;
     }
-    ctx.globalAlpha=1;
+    ctx.globalAlpha = 1;
 
-//17.8 Combo, plunger and next-ball labels
-    if(combo>=2 && comboTimer>0) {
-      ctx.textAlign="center";
-      ctx.fillStyle=C.yellow;
-      ctx.font="900 17px system-ui";
-      ctx.shadowColor=C.yellow;
-      ctx.shadowBlur=12;
-      ctx.fillText("COMBO x"+Math.min(combo,3),180,350);
-      ctx.shadowBlur=0;
+    //17.8 Combo, plunger and next-ball labels
+    if(combo >= 2 && comboTimer > 0) {
+      ctx.textAlign = "center";
+      ctx.fillStyle = C.yellow;
+      ctx.font = "900 16px system-ui";
+      if (!LOW_PERF) { ctx.shadowColor = C.yellow; ctx.shadowBlur = 10; }
+      ctx.fillText("COMBO x" + Math.min(combo, 3), 180, 350);
+      ctx.shadowBlur = 0;
     }
 
-    if(ballWait>0) {
-      ctx.fillStyle=C.white;
-      ctx.font="bold 13px system-ui";
-      ctx.textAlign="center";
-      ctx.fillText("NEXT BALL...",180,400);
+    if(ballWait > 0) {
+      ctx.fillStyle = C.white;
+      ctx.font = "bold 12px system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText("NEXT BALL...", 180, 400);
     }
 
-    ctx.fillStyle="#9292b8";
-    ctx.font="bold 9px system-ui";
-    ctx.textAlign="left";
-    ctx.fillText("LV "+(levelIndex+1),34,585);
-    ctx.fillText(VERSION,34,598);
+    ctx.fillStyle = "#9292b8";
+    ctx.font = "bold 9px system-ui";
+    ctx.textAlign = "left";
+    ctx.fillText("LV " + (levelIndex + 1), 34, 585);
+    ctx.fillText(VERSION, 34, 598);
 
     if(ballInPlunger) {
       const base = 584, top = 560 + plungePower * 18;
       ctx.strokeStyle = C.yellow;
       ctx.lineWidth = 3;
-      ctx.shadowColor = C.yellow;
-      ctx.shadowBlur = 8;
+      if (!LOW_PERF) { ctx.shadowColor = C.yellow; ctx.shadowBlur = 6; }
       ctx.beginPath();
       ctx.moveTo(314, base);
-      for (let i = 1; i <= 12; i++) {
-        ctx.lineTo(i % 2 ? 330 : 314, top + (base - top) * i / 12);
+      for (let i = 1; i <= 10; i++) {
+        ctx.lineTo(i % 2 ? 330 : 314, top + (base - top) * i / 10);
       }
       ctx.lineTo(322, top);
       ctx.stroke();
       ctx.shadowBlur = 0;
 
-      line(308, 588, 336, 588, C.yellow, 5, 10);
+      line(308, 588, 336, 588, C.yellow, 4, 0);
 
       ctx.fillStyle = "#2a2a4a";
       ctx.fillRect(331, 440, 4, 100);
@@ -1200,7 +1204,7 @@
       ctx.fillRect(331, 540 - 100 * plungePower, 4, 100 * plungePower);
 
       ctx.fillStyle = C.white;
-      ctx.font = "bold 12px system-ui";
+      ctx.font = "bold 11px system-ui";
       ctx.textAlign = "center";
       ctx.fillText("HOLD SPACE TO LAUNCH", 180, 585);
     }
